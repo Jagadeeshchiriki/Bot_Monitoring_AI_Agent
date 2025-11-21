@@ -1,0 +1,80 @@
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.pkl
+*.egg
+*.egg-info/
+dist/
+build/
+*.spec
+
+# ---- Virtual environments ----
+.venv/
+venv/
+env/
+ENV/
+pip-wheel-metadata/
+
+# ---- FastAPI / Uvicorn ----
+*.log
+uvicorn.log
+
+# ---- MCP Agent / LangChain / Groq related ----
+.cache/
+.mcp/
+**/mcp_servers/
+**/mcp_logs/
+**/server/.mcp/
+
+# ---- Jupyter ----
+.ipynb_checkpoints/
+
+# ---- Environment Files ----
+.env
+.env.* 
+*.env
+
+# ---- OS related ----
+.DS_Store
+Thumbs.db
+
+# ---- IDEs ----
+# VS Code
+.vscode/
+.settings/
+
+# PyCharm
+.idea/
+
+# ---- Database / runtime files ----
+*.sqlite3
+*.db
+*.sql
+*.pid
+
+# ---- Testing ----
+.coverage
+htmlcov/
+pytest_cache/
+
+# ---- Node (if frontend present) ----
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# ---- Docker ----
+*.pid
+*.sock
+docker-compose.override.yml
+
+# ---- Logs ----
+logs/
+*.log
+
+# ---- Misc ----
+.tmp/
+temp/
+*.tmp
