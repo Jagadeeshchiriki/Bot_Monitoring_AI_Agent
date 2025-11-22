@@ -41,7 +41,7 @@ async def get_logs_by_execution_id(execution_id: str) -> dict:
     
     
 def update_job(job_id: str, update_data: dict) -> dict:
-    # response = requests.put(f"http://localhost:8000/jobs/{job_id}", json=update_data)
+    # response = requests.put(f"http://localhost:8001/jobs/{job_id}", json=update_data)
     # response.raise_for_status()
     # return response.json()
     updated_job = {"job_id": job_id}
@@ -57,7 +57,7 @@ def send_email(recipient: str, subject: str, body: str) -> bool:
     return True
 
 def get_rca_by_id(rca_id: str) -> dict:
-    # response = requests.get(f"http://localhost:8000/rca/{rca_id}")
+    # response = requests.get(f"http://localhost:8001/rca/{rca_id}")
     # response.raise_for_status()
     # return response.json()
     
