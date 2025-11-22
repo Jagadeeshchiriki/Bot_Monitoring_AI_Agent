@@ -1,10 +1,11 @@
 import requests
 import json
-import os   
+import os  
+import datetime
 from dotenv import load_dotenv  
 import pandas as pd
 import re
-# from master_agent.agent.server.api.jobs import update_job
+from api.jobs import update_job,get_execution_by_executionid,get_logs_by_execution_id,get_job_by_id
 
 
 excel_path = r"C:\Users\vishesh\Downloads\RCA_Knowledge_Base.xlsx"
@@ -33,6 +34,45 @@ async def rca_analyizer(Process_Name: str, State: str, Exception_Message: str):
         return result
     else:
         return None, None  # or raise an error if no match
+
+
+async def get_rca_response(jobid: str):
+    job = await get_job_by_id(jobid)
+    if not job:
+        raise ValueError("Job not found")
+
+    logs = await get_logs_by_execution_id(job["ExecutionId"])
+    if not logs:
+        raise ValueError("No logs found")
+
+    execution = await get_execution_by_executionid(job["ExecutionId"])
+    if not execution:
+        raise ValueError("Execution details not found")
+
+    try:
+        Exception_Message = max(
+            logs,
+            key=lambda x: datetime.fromisoformat(x["dateTime"])
+        )
+    except Exception as e:
+        raise ValueError(f"Error parsing logs: {e}")
+
+    return await rca_analyizer(
+        execution['Process_Name'],
+        execution['State'],
+        Exception_Message
+    )
+ 
+
+
+
+
+
+
+
+
+
+
 
 # Example usage
 # rca_id, Suggested_Action,confidence  = rca_analyizer(

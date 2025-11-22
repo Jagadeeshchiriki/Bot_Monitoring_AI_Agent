@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException,Request
 from bson import ObjectId
 from typing import List
 from db_connection.database import db,ensure_collections
@@ -14,7 +14,11 @@ from scheduler.db_scheduler.monitor_faulted_executions import monitor_faulted_ex
 from scheduler.db_scheduler.monitor_email_replies import monitor_email_replies
 from scheduler.execution_scheduler.utils.apis import get_token,negotiate_connection
 
+from utils.smtp_services import send_action_email
+from utils.llm_mail_format import generate_email_content
+
 app = FastAPI(title="Automation Logging Server")
+
 
 # Helper to convert ObjectId to str
 def convert_id(doc):
@@ -73,6 +77,7 @@ async def get_execution_by_id(execution_id: str):
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
     return convert_id(execution)
+
 
 
 # -------------------------------
@@ -150,5 +155,39 @@ async def get_audit_log_by_id(audit_id: str):
         raise HTTPException(status_code=404, detail="Audit log not found")
     return convert_id(audit)
 
+@app.post("/send_email")
+async def send_email(payload:dict):
+    """
+    Generates subject and body using LLM, then sends email.
+    """
+    # 1️⃣ Generate email content dynamically
+    # Default fallback content
+    fallback_subject = "No subject"
+    fallback_body = payload.get("Message", "No body available")
 
+    email_content = {"subject": fallback_subject, "body": fallback_body}
+    try:
+        print("📝 Payload received:", payload)
+
+        generated_content = await generate_email_content(payload)
+        print("📝 Generated email content:", email_content)
+
+         # Only overwrite if we got valid result
+        if generated_content and "subject" in generated_content and "body" in generated_content:
+            email_content = generated_content
+
+    except Exception as e:
+        # Log the failure but continue with fallback
+        print(f"LLM generation failed, using fallback: {e}")
+
+    # Extract final subject/body
+    subject = email_content["subject"]
+    body = email_content["body"]
+
+    # Send email
+    success = send_action_email(subject, body)
+
+    return {"success": success, "subject": subject, "body": body}
+
+  
 # uvicorn main:app --reload --port 8001
