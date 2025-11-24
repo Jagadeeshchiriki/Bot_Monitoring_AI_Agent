@@ -4,10 +4,10 @@ from datetime import datetime
 import websockets
 from db_connection.database import db
 from scheduler.execution_scheduler.utils.apis  import negotiate_connection,get_token
+from bson import ObjectId
+
 
 EXT = "\x1e"
-TARGET_PROCESS_NAME = "TestLogs" # Change this to the process you want to run
-TARGET_ROBOT_ID = 34             # Change this to the Robot ID you want to use
 
 def make_invocation(target, invocation_id, args):
     return json.dumps({
@@ -17,7 +17,7 @@ def make_invocation(target, invocation_id, args):
         "arguments": args
     }) + EXT
 
-async def run_ws_client(access_token: str, connection_token: str):
+async def run_ws_client(access_token: str, connection_token: str,ProcessName:str,RobotName:str):
     websocket_url = (
         "wss://us01governor.futuredge.com/api/myhub"
         f"?Machine=WebClient&Key=random&id={connection_token}"
@@ -61,11 +61,11 @@ async def run_ws_client(access_token: str, connection_token: str):
                 # ---------------------------------------------------------
                 if data.get("invocationId") == "25" and data.get("type") == 3:
                     result_list = data.get("result", [])
-                    found_process = next((p for p in result_list if p["Name"] == TARGET_PROCESS_NAME), None)
+                    found_process = next((p for p in result_list if p["Name"] == ProcessName), None)
                     
                     if found_process:
                         process_id = found_process["Id"]
-                        print(f"✔ Found Process '{TARGET_PROCESS_NAME}' with ID: {process_id}")
+                        print(f"✔ Found Process '{ProcessName}' with ID: {process_id}")
                         
                         # Trigger Step 2: Get Entry File AND Get Robots
                         print("-> Step 2: Requesting File Info and Robot List...")
@@ -76,7 +76,7 @@ async def run_ws_client(access_token: str, connection_token: str):
                         # Request Robot List (ID 27)
                         await ws.send(make_invocation("ViewRobot", "27", [0, 10, None, process_id]))
                     else:
-                        print(f"❌ Process '{TARGET_PROCESS_NAME}' not found.")
+                        print(f"❌ Process '{ProcessName}' not found.")
                         return "Failed: Process not found"
 
                 # ---------------------------------------------------------
@@ -98,12 +98,12 @@ async def run_ws_client(access_token: str, connection_token: str):
                     if args and "Data" in args[0]:
                         robot_list = args[0]["Data"]
                         # Find the robot with the specific ClientId (e.g., 34)
-                        target_robot_obj = next((r for r in robot_list if r["ClientId"] == TARGET_ROBOT_ID), None)
+                        target_robot_obj = next((r for r in robot_list if r["RobotName"] == RobotName), None)
                         
                         if target_robot_obj:
-                            print(f"✔ Robot Found: {target_robot_obj['RobotName']} (ID: {TARGET_ROBOT_ID})")
+                            print(f"✔ Robot Found: {target_robot_obj['RobotName']} (RobotName: {RobotName})")
                         else:
-                            print(f"❌ Robot ID {TARGET_ROBOT_ID} not found in available robots.")
+                            print(f"❌ RobotName {RobotName} not found in available robots.")
 
                 # ---------------------------------------------------------
                 # Step 3: Run Execution
@@ -141,11 +141,13 @@ async def run_ws_client(access_token: str, connection_token: str):
                     print("✔ RunProcessExecution returned success.")
                     return "Completed"
 
-async def restart_action_bot():
+async def restart_action_bot(job_id:str):
     try:
+        job = await db.jobs.find_one({"_id": ObjectId(job_id)})
+        execution = await db.executions.find_one({"ExecutionId": job["ExecutionId"]})
         access_token = get_token()
         connection_token = negotiate_connection(access_token)
-        response = await run_ws_client(access_token, connection_token)
+        response = await run_ws_client(access_token, connection_token,execution["Process"],execution["Robot"])
         return response
     except Exception as e:
         print(f"Error: {str(e)}")
