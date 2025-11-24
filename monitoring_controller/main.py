@@ -202,8 +202,8 @@ async def send_email(subject:str,body:str,job_id:str):
 
     return {"success": success, "subject": subject, "body": body}
 
-@app.post("/restart")
-async def restart_bot():
-    re=await restart_action_bot()
+@app.post("/restart/{job_id}")
+async def restart_bot(job_id:str):
+    re=await restart_action_bot(job_id)
     return {"status":"success"}
 # uvicorn main:app --reload --port 8001

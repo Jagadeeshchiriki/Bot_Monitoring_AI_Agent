@@ -5,7 +5,7 @@ import json
 import asyncio
 import smtplib
 from tools.rca import get_rca_response
-from api.jobs import update_job,action_job,create_audit_logs,send_audit_log
+from api.jobs import update_job,action_job,get_job_by_id,send_audit_log,get_execution_by_executionid
 mcp = FastMCP("server")
 
 # ---- SOP/RCA Lookup Tool ----
@@ -48,16 +48,17 @@ async def send_mail(jobid: str, subject: str,body:str) -> dict:
 
 # ---- Audit Logging Tool ----
 @mcp.tool()
-async def perform_action(jobid:str,mailrecived_text:str,event: str, data: dict) -> dict:
+async def perform_action(jobid:str,ExecutionId:str,mailrecived_text:str,event: str, data: dict) -> dict:
     """
     Log event for traceability.
     """
+    
     print(f"[AUDIT] {event} :: {data}")
     new_job = {
         "status":"Completed"
     }
     if mailrecived_text:
-        await action_job()
+        await action_job(jobid)
         await update_job(jobid,new_job)
     return {"status": "logged"}
 

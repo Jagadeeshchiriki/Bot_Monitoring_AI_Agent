@@ -50,11 +50,11 @@ async def update_job(job_id: str, update_data: dict) -> dict:
     response.raise_for_status()
     return response.json()
 
-async def action_job() -> dict:
+async def action_job(jobid:str) -> dict:
     """
     PUT request to update an existing job
     """
-    url = f"http://localhost:8001/restart"
+    url = f"http://localhost:8001/restart/{jobid}"
     response = requests.post(url)
     response.raise_for_status()
     return response.json()
