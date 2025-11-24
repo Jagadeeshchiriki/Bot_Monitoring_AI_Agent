@@ -3,45 +3,66 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-
+import uuid
+from db_connection.database import db
+import logging
+from bson import ObjectId
 load_dotenv()
 
-
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
 SMTP_SERVER = os.getenv("SMTP_SERVER")
-SMTP_PORT = int(os.getenv("SMTP_PORT",587))
+SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
 IMAP_SERVER = os.getenv("IMAP_SERVER")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
-SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")  
+SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
 RECEIVER_EMAIL = os.getenv("RECEIVER_EMAIL")
 
 
-thread_id = "abc123-thread"
-
-
-def send_email(subject: str, body: str, thread_id: str = None) -> bool:
+async def send_email_SMTP(subject: str, body: str, job_id: str) -> bool:
+    logging.info(f"Preparing to send email to {RECEIVER_EMAIL} with subject '{subject}'")
+    short_id = uuid.uuid4().hex[:4]  
+    subject = f"{subject} {short_id}"
     msg = MIMEMultipart()
     msg['From'] = SENDER_EMAIL
     msg['To'] = RECEIVER_EMAIL
     msg['Subject'] = subject
-    if thread_id:
-        msg['threadId'] = thread_id
+   
 
     msg.attach(MIMEText(body, 'plain'))
 
+
+    # Update MongoDB
+    update_fields = {
+        "is_mailsent": True,
+        "mailsent_text": body,
+        "threadId": short_id
+    }
+
     try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            server.sendmail(SENDER_EMAIL, RECEIVER_EMAIL, msg.as_string())
-        print("Email sent successfully")
-        return True
+        logging.info(f"Updating MongoDB job {job_id} before sending email")
+        result = await db.jobs.update_one({"_id": ObjectId(job_id)}, {"$set": update_fields})
+        logging.info(f"MongoDB update result: {result.raw_result}")
     except Exception as e:
-        print(f"Failed to send email: {e}")
-        return False
+        logging.error(f"Failed to update MongoDB: {e}")
 
-def send_request_email(subject: str, body: str):
-    return send_email(subject, body, thread_id=thread_id)
-
-def send_action_email(subject: str, body: str):
-    return send_email(subject, body, thread_id=thread_id)
+    try:
+        logging.info(f"Connecting to SMTP server {SMTP_SERVER}:{SMTP_PORT}")
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.set_debuglevel(1)  # Enable detailed SMTP debug output
+            logging.info("Starting TLS")
+            server.starttls()
+            logging.info("Logging in to SMTP server")
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            logging.info("Sending email message")
+            server.send_message(msg)
+        logging.info("Email sent successfully")
+        return True
+    except smtplib.SMTPAuthenticationError as auth_err:
+        logging.error(f"SMTP Authentication failed: {auth_err}")
+    except smtplib.SMTPException as smtp_err:
+        logging.error(f"SMTP error occurred: {smtp_err}")
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}")
+    return False

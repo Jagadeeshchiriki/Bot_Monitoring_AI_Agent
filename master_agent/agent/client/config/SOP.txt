@@ -60,6 +60,7 @@ You will receive a job response object with the following fields:
 - Always wait for the RCA tool response if RCA_ID exists.
 - Use only the data provided in the job response to make decisions.
 - Be deterministic: follow the workflow exactly without assuming extra information.
+- For every meaningful event, decision, or action taken during job processing, you must write an audit log using the post_audit_log.
 - Every job must end with `SAY STOP` once all actions are completed or deemed unnecessary.
 
 ---

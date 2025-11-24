@@ -72,6 +72,8 @@ async def run_ws_client(access_token: str, connection_token: str):
                     [exc_id, 0, 50, datetime.now().day, datetime.now().month, datetime.now().year, ""]
                 ))
             print("📤 Requested logs for executions:", execution_ids)
+            
+        
 
         # Run first fetch immediately
         await fetch_executions()

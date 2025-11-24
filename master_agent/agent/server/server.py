@@ -5,13 +5,13 @@ import json
 import asyncio
 import smtplib
 from tools.rca import get_rca_response
-
+from api.jobs import update_job,action_job,send_audit_log
 mcp = FastMCP("server")
 
 # ---- SOP/RCA Lookup Tool ----
 print("Server starting...")
 
-url = "http://localhost:8001/send_email"
+
 
 
 @mcp.tool()
@@ -26,27 +26,13 @@ async def get_rca(jobid:str) -> dict:
 
 # ---- Action Executor Tool ----
 @mcp.tool()
-def send_mail(action: str, payload: dict) -> dict:
+def send_mail(JobId: str, subject: str,body:str) -> dict:
     """
     Send the mail to developer with exception message and get  the approval response.
-    action:action_request
-    payload:{
-        JobID,
-        ErrorType,
-        Message
-        action_request
-    }
     """
-    data={ 
-     "payload": {
-        "JobId": payload["JobID"],
-        "ErrorType": payload["ErrorType"],
-        "Message": payload["Message"],
-        "action_request":payload["action_request"]
-    },
-    "threadId": "abc123-thread"
-   }
-    response = requests.post(url, json=data)
+
+    url = f"http://localhost:8001/send_email?subject={subject}&body={body}&job_id={JobId}"
+    response = requests.post(url)
 
     # Check response
     if response.status_code == 200:
@@ -58,13 +44,25 @@ def send_mail(action: str, payload: dict) -> dict:
 
 # ---- Audit Logging Tool ----
 @mcp.tool()
-def perform_action(event: str, data: dict) -> dict:
+async def perform_action(jobid:str,event: str, data: dict) -> dict:
     """
     Log event for traceability.
     """
     print(f"[AUDIT] {event} :: {data}")
+    new_job = {
+        "status":"Completed"
+    }
+    await action_job()
+    await update_job(jobid,new_job)
     return {"status": "logged"}
 
+@mcp.tool()
+async def post_audit_log(jobType: str, jobId: str, actor: str, message: str) -> dict:
+    """
+    MCP Tool: create an audit log using the shared send_audit_log method.
+    """
+    return await send_audit_log(jobType, jobId, actor, message)
 
-if __name__ == "__main__":
+
+if __name__ == "__main__":  
     mcp.run()

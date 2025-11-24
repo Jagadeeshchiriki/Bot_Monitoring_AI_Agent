@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Monitor Dashboard</title>
+    <!-- Tailwind CSS from CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Phosphor Icons for nice UI icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        /* Custom Scrollbar for the table container */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+        
+        /* Smooth fade in for rows */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center shadow-sm z-10">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                <i class="ph ph-robot text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold text-slate-800">Agent Live Monitor</h1>
+                <p class="text-xs text-slate-500">Real-time execution tracking</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-xs font-medium border border-green-100">
+                <span class="relative flex h-2 w-2">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+                Live Connection
+            </div>
+            <span id="lastUpdated" class="text-xs text-slate-400 font-mono">Waiting for data...</span>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-6 overflow-hidden flex flex-col">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden">
+            
+            <!-- Table Container -->
+            <div class="overflow-auto custom-scroll flex-1">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-semibold sticky top-0 z-10 shadow-sm">
+                        <tr>
+                            <th class="px-4 py-3 border-b border-slate-200">Status</th>
+                            <th class="px-4 py-3 border-b border-slate-200">Execution Info</th>
+                            <th class="px-4 py-3 border-b border-slate-200">Threads & IDs</th>
+                            <th class="px-4 py-3 border-b border-slate-200 text-center">Mail Sent</th>
+                            <th class="px-4 py-3 border-b border-slate-200">Email (Sent)</th>
+                            <th class="px-4 py-3 border-b border-slate-200">Email (Received)</th>
+                            <th class="px-4 py-3 border-b border-slate-200">Timestamps</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobsTableBody" class="divide-y divide-slate-100 text-sm">
+                        <!-- Rows will be injected here -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Footer / Legend -->
+            <div class="bg-slate-50 border-t border-slate-200 px-4 py-2 text-xs text-slate-500 flex gap-4">
+                <span><span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1"></span> Completed</span>
+                <span><span class="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1"></span> Processing/Pending</span>
+                <span><span class="inline-block w-2 h-2 rounded-full bg-rose-500 mr-1"></span> Error/Failed</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- Details Modal (Hidden by default) -->
+    <div id="detailModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl m-4 flex flex-col max-h-[80vh]">
+            <div class="flex justify-between items-center p-4 border-b border-slate-100">
+                <h3 class="font-bold text-lg text-slate-800">Log Details</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition">
+                    <i class="ph ph-x text-xl"></i>
+                </button>
+            </div>
+            <div class="p-4 overflow-auto bg-slate-50 custom-scroll">
+                <pre id="modalContent" class="text-xs font-mono text-slate-700 whitespace-pre-wrap break-words"></pre>
+            </div>
+            <div class="p-4 border-t border-slate-100 text-right">
+                <button onclick="closeModal()" class="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm hover:bg-slate-700 transition">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Helper Functions ---
+
+        // Format Dates nicely
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return new Intl.DateTimeFormat('en-US', {
+                month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            }).format(date);
+        }
+
+        // Get badge color based on status string
+        function getStatusBadge(status) {
+            const s = (status || '').toLowerCase();
+            let colorClass = "bg-slate-100 text-slate-600 border-slate-200"; // Default
+            let icon = "ph-minus";
+
+            if (s.includes('success') || s.includes('completed') || s === 'done') {
+                colorClass = "bg-emerald-50 text-emerald-700 border-emerald-200";
+                icon = "ph-check-circle";
+            } else if (s.includes('fail') || s.includes('error')) {
+                colorClass = "bg-rose-50 text-rose-700 border-rose-200";
+                icon = "ph-warning-circle";
+            } else if (s.includes('running') || s.includes('pending') || s.includes('process')) {
+                colorClass = "bg-amber-50 text-amber-700 border-amber-200";
+                icon = "ph-spinner-gap animate-spin"; // Spinning icon
+            }
+
+            return `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${colorClass}">
+                        <i class="ph ${icon}"></i> ${status || 'Unknown'}
+                    </span>`;
+        }
+
+        // Truncate text for the table view
+        function truncateText(text, maxLength = 30) {
+            if (!text) return '<span class="text-slate-300 italic">Empty</span>';
+            if (text.length <= maxLength) return text;
+            // Encode text for HTML attribute to prevent breaking quotes
+            const safeText = text.replace(/"/g, '&quot;');
+            return `
+                <span class="text-slate-600">${text}</span>
+                <!-- <span class="text-slate-600">${text.substring(0, maxLength)}...</span> -->
+                <!-- <button onclick='openModal("${encodeURIComponent(text)}")' class="ml-1 text-indigo-600 hover:text-indigo-800 text-xs font-medium hover:underline">
+                    View
+                </button> -->
+            `;
+        }
+
+        // --- Main Logic ---
+
+        async function fetchJobs() {
+            try {
+                const response = await fetch("http://localhost:8001/jobs");
+                const jobs = await response.json();
+                const tbody = document.getElementById("jobsTableBody");
+                
+                // Note: In a production app with React/Vue, we would diff the DOM. 
+                // Here we rebuild, but we keep it fast.
+                tbody.innerHTML = ""; 
+
+                // Update header time
+                const now = new Date();
+                document.getElementById("lastUpdated").innerText = `Last sync: ${now.toLocaleTimeString()}`;
+
+                if (jobs.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">No active jobs found.</td></tr>`;
+                    return;
+                }
+
+                jobs.forEach((job, index) => {
+                    const row = document.createElement("tr");
+                    row.className = "hover:bg-slate-50 transition-colors border-b border-slate-50 animate-fade-in";
+                    // Add a slight delay to animation based on index for "waterfall" effect
+                    row.style.animationDelay = `${index * 0.05}ms`; 
+
+                    row.innerHTML = `
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            ${getStatusBadge(job.status)}
+                        </td>
+                        <td class="px-4 py-3">
+                             <div class="flex flex-col">
+                                <span class="text-xs font-bold text-slate-700">Exec: <span class="font-mono font-normal text-slate-500">${job.ExecutionId || 'N/A'}</span></span>
+                                <span class="text-xs text-slate-400">ID: ${job._id}</span>
+                             </div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex flex-col gap-1">
+                                <span class="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600 border border-slate-200 w-fit">RCA: ${job.RCA_ID || '-'}</span>
+                                <span class="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600 border border-slate-200 w-fit">Thread: ${job.threadId || '-'}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            ${job.is_mailsent 
+                                ? '<i class="ph ph-check-fat text-emerald-500 text-lg"></i>' 
+                                : '<i class="ph ph-x text-slate-300 text-lg"></i>'}
+                        </td>
+                        <td class="px-4 py-3 max-w-[150px]">
+                            ${truncateText(job.mailsent_text)}
+                        </td>
+                        <td class="px-4 py-3 max-w-[150px]">
+                            ${truncateText(job.mailrecived_text)}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <div class="flex flex-col text-xs">
+                                <span class="text-slate-600">C: ${formatDate(job.CreatedAt)}</span>
+                                <span class="text-slate-400">U: ${formatDate(job.UpdatedAt)}</span>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (err) {
+                console.error("Error fetching jobs:", err);
+                document.getElementById("lastUpdated").innerText = "Connection Error";
+                document.getElementById("lastUpdated").className = "text-xs text-rose-500 font-bold";
+            }
+        }
+
+        // --- Modal Logic ---
+        const modal = document.getElementById('detailModal');
+        const modalContent = document.getElementById('modalContent');
+
+        function openModal(encodedText) {
+            const text = decodeURIComponent(encodedText);
+            modalContent.textContent = text;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeModal() {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // Close modal when clicking outside
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        // Initial fetch
+        fetchJobs();
+
+        // Poll every 3 seconds
+        setInterval(fetchJobs, 3000);
+    </script>
+</body>
+</html>
