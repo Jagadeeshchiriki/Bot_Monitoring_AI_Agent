@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException,Request
 from bson import ObjectId
 from typing import List
-from db_connection.database import db,ensure_collections
+from db_connection.database import db,ensure_collections,watch_jobs_changes
 
-from schemas.job_schema import Job
+from schemas.job_schema import Job,JobUpdate
 from schemas.execution_schema import Execution
 from schemas.logs_schema import Log
 from schemas.rca_schema import RCA
@@ -11,11 +11,13 @@ from schemas.auditlog_schema import AuditLog
 import asyncio
 from scheduler.execution_scheduler.ws_client import run_ws_client
 from scheduler.db_scheduler.monitor_faulted_executions import monitor_faulted_executions
-from scheduler.db_scheduler.monitor_email_replies import monitor_email_replies
+from scheduler.monitor_email_replies.monitor_email_replies import monitor_email_replies
 from scheduler.execution_scheduler.utils.apis import get_token,negotiate_connection
-
-from utils.smtp_services import send_action_email
+from datetime import datetime, timezone
+from fastapi.middleware.cors import CORSMiddleware
+from utils.smtp_services import send_email_SMTP
 from utils.llm_mail_format import generate_email_content
+from utils.restart_web_connection  import restart_action_bot
 
 app = FastAPI(title="Automation Logging Server")
 
@@ -25,6 +27,14 @@ def convert_id(doc):
     doc["_id"] = str(doc["_id"])
     return doc
 
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # allow your frontend origins
+    allow_credentials=False,
+    allow_methods=["*"],    # allow all HTTP methods (GET, POST, etc.)
+    allow_headers=["*"],    # allow all headers
+)
 
 @app.on_event("startup")
 async def start_ws_client():
@@ -47,7 +57,7 @@ async def create_job(job: Job):
 
 @app.get("/jobs")
 async def get_jobs():
-    jobs = await db.jobs.find().to_list(2000)
+    jobs = await db.jobs.find().sort("CreatedAt", -1).to_list(2000)
     return [convert_id(j) for j in jobs]
 
 @app.get("/jobs/{job_id}")
@@ -57,6 +67,23 @@ async def get_job_by_id(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
     return convert_id(job)
 
+@app.put("/jobs/{job_id}")
+async def update_job(job_id: str, job: JobUpdate):
+    update_data = {k: v for k, v in job.dict().items() if v is not None}
+
+    # Always update timestamp
+    update_data["UpdatedAt"] = datetime.now(timezone.utc)
+
+    result = await db.jobs.update_one(
+        {"_id": ObjectId(job_id)},
+        {"$set": update_data}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    updated_job = await db.jobs.find_one({"_id": ObjectId(job_id)})
+    return convert_id(updated_job)
 
 # -------------------------------
 # EXECUTION APIs
@@ -155,39 +182,28 @@ async def get_audit_log_by_id(audit_id: str):
         raise HTTPException(status_code=404, detail="Audit log not found")
     return convert_id(audit)
 
+@app.get("/auditlogs/job/{job_id}")
+async def get_audit_logs_by_job_id(job_id: str):
+    """
+    Return all audit logs associated with a specific job_id.
+    """
+    logs_cursor = db.auditlogs.find({"jobId": job_id}).sort("timestamp", -1)
+    logs = await logs_cursor.to_list(2000)
+
+    return [convert_id(log) for log in logs]
+
 @app.post("/send_email")
-async def send_email(payload:dict):
+async def send_email(subject:str,body:str,job_id:str):
     """
     Generates subject and body using LLM, then sends email.
     """
-    # 1️⃣ Generate email content dynamically
-    # Default fallback content
-    fallback_subject = "No subject"
-    fallback_body = payload.get("Message", "No body available")
-
-    email_content = {"subject": fallback_subject, "body": fallback_body}
-    try:
-        print("📝 Payload received:", payload)
-
-        generated_content = await generate_email_content(payload)
-        print("📝 Generated email content:", email_content)
-
-         # Only overwrite if we got valid result
-        if generated_content and "subject" in generated_content and "body" in generated_content:
-            email_content = generated_content
-
-    except Exception as e:
-        # Log the failure but continue with fallback
-        print(f"LLM generation failed, using fallback: {e}")
-
-    # Extract final subject/body
-    subject = email_content["subject"]
-    body = email_content["body"]
-
-    # Send email
-    success = send_action_email(subject, body)
+    print(f"subject : {subject}, body: {body}, job_id: {job_id}")
+    success = await send_email_SMTP(subject, body,job_id)
 
     return {"success": success, "subject": subject, "body": body}
 
-  
+@app.post("/restart")
+async def restart_bot():
+    re=await restart_action_bot()
+    return {"status":"success"}
 # uvicorn main:app --reload --port 8001

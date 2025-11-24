@@ -11,6 +11,7 @@ async def read_root(jobid: str):
     execution  =await get_execution_by_executionid(job["ExecutionId"])
     # print(execution)
     message = f"""
+    JobId : {job["_id"]}
     JOB: {job}
     LOGS: {logs}
     """

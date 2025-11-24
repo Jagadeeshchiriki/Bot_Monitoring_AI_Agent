@@ -47,7 +47,7 @@ async def setup_agent(message,job_id):
     agent = MCPAgent(
         llm=llm,
         client=client,
-        # system_prompt=instructions,
+        system_prompt=instructions, 
         max_steps=30)
 
     result = await agent.run(message)
