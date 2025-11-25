@@ -35,9 +35,9 @@ async def process_faulted_executions():
                 print(f"✅ Created new job for ExecutionId {exec_id}, JobId: {job_id}")
                 isNew=True
 
-            # Send POST request with job_id
-            if job_doc["mailrecived_text"] or isNew or not job_doc["RCA_ID"] or not job_doc["is_mailsent"] or job_doc["status"] != "Completed": 
-                await send_job_api(job_id)
+            if job_doc["status"] != "Completed":
+                if job_doc["mailrecived_text"] or isNew or not job_doc["RCA_ID"] or not job_doc["is_mailsent"] : 
+                    await send_job_api(job_id)
             else :
                  print(f"mailrecived_text not found !!!!!!!!!!!!!!!!!!!!!")
 

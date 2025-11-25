@@ -188,13 +188,13 @@ async def add_new_rca(
         "status": "error",
         "message": f"Failed to add RCA: {response.text}"
     }
-@mcp.tool()
-async def update_Rca_Base_Confidence(RCA_ID:str,Base_Confidence:str):
-    update_data={
-        "Base_Confidence":Base_Confidence
-    }
-    await update_rca(RCA_ID,update_data)
-    return "Successfully rca updated"
+# @mcp.tool()
+# async def update_Rca_Base_Confidence(RCA_ID:str,Base_Confidence:str):
+#     update_data={
+#         "Base_Confidence":Base_Confidence
+#     }
+#     await update_rca(RCA_ID,update_data)
+#     return "Successfully rca updated"
 
 if __name__ == "__main__":  
     mcp.run()

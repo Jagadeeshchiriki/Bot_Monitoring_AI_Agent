@@ -79,7 +79,7 @@ async def run_ws_client(access_token: str, connection_token: str):
         await fetch_executions()
 
         # Schedule periodic fetch every 10 minutes
-        asyncio.create_task(periodic_fetch(ws, fetch_executions, interval=10))
+        asyncio.create_task(periodic_fetch(ws, fetch_executions, interval=300))
 
         global all_exec, all_logs
         while True:

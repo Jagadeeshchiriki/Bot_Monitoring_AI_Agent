@@ -17,7 +17,7 @@ def make_invocation(target, invocation_id, args):
         "arguments": args
     }) + EXT
 
-async def run_ws_client(access_token: str, connection_token: str,ProcessName:str,RobotName:str):
+async def run_ws_client(access_token: str, connection_token: str,ProcessName:str,RobotName:str,EntryFile:str):
     websocket_url = (
         "wss://us01governor.futuredge.com/api/myhub"
         f"?Machine=WebClient&Key=random&id={connection_token}"
@@ -26,7 +26,6 @@ async def run_ws_client(access_token: str, connection_token: str,ProcessName:str
 
     # State variables to store data between steps
     process_id = None
-    entry_file = None
     target_robot_obj = None
     step = 0 # 0: Init, 1: Get Process, 2: Get Details/Robots, 3: Run, 4: Done
 
@@ -85,9 +84,9 @@ async def run_ws_client(access_token: str, connection_token: str,ProcessName:str
                 if data.get("invocationId") == "26" and data.get("type") == 3:
                     result = data.get("result", {})
                     file_list = result.get("listOfFiles", [])
-                    if file_list:
-                        entry_file = file_list[0]["Name"]
-                        print(f"✔ Entry File Found: {entry_file}")
+                    # if file_list:
+                    #     entry_file = file_list[0]["Name"]
+                    #     print(f"✔ Entry File Found: {entry_file}")
 
                 # ---------------------------------------------------------
                 # Handle Step 2 Response Part B: Get Robot Object
@@ -109,7 +108,7 @@ async def run_ws_client(access_token: str, connection_token: str,ProcessName:str
                 # Step 3: Run Execution
                 # ---------------------------------------------------------
                 # Check if we have gathered all necessary info
-                if process_id and entry_file and target_robot_obj and step < 3:
+                if process_id and EntryFile and target_robot_obj and step < 3:
                     print("-> Step 3: Sending Execution Command...")
                     step = 3 # Prevent sending multiple times
                     
@@ -117,7 +116,7 @@ async def run_ws_client(access_token: str, connection_token: str,ProcessName:str
                     # "arguments":["ProcessID","EntryFile",false,[RobotObj],[],0,10,null]
                     execution_args = [
                         process_id,
-                        entry_file,
+                        EntryFile,
                         False,
                         [target_robot_obj], # Must be a list containing the robot object
                         [],
@@ -147,7 +146,7 @@ async def restart_action_bot(job_id:str):
         execution = await db.executions.find_one({"ExecutionId": job["ExecutionId"]})
         access_token = get_token()
         connection_token = negotiate_connection(access_token)
-        response = await run_ws_client(access_token, connection_token,execution["Process"],execution["Robot"])
+        response = await run_ws_client(access_token, connection_token,execution["Process"],execution["Robot"],execution["EntryFile"])
         return response
     except Exception as e:
         print(f"Error: {str(e)}")

@@ -75,8 +75,8 @@
                             <th class="px-4 py-3 w-64">Job Details</th>
                             <th class="px-4 py-3 w-48">Mail Sent To</th>
                             <th class="px-4 py-3 w-40">Acknowledgement</th>
-                            <th class="px-4 py-3 w-40 text-left">Started</th>
-                            <th class="px-4 py-3 w-40 text-left">Ended</th>
+                            <th class="px-4 py-3 w-40 text-left">Start Date</th>
+                            <th class="px-4 py-3 w-40 text-left">End Date</th>
                             <th class="px-4 py-3 w-24 text-center">Duration</th>
                             
                             <!-- UPDATED: Changed alignment to center and width to w-36 -->
@@ -176,10 +176,17 @@ function getStatusBadge(status) {
         </span>`;
 }
 
-function getAcknowledgementBadge(text, isMailSent) {
+function getAcknowledgementBadge(text, isMailSent,status) {
 
     if (!isMailSent) return `<span class="text-xs text-slate-300">—</span>`;
 
+    if(isMailSent && (!text || text.trim() === "") && status ==="Completed"){
+         return `
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-xs font-medium">
+                Mail Sent
+            </span>`;
+    }
+    
     if (isMailSent && (!text || text.trim() === "")) {
         return `
             <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-xs font-medium">
@@ -192,7 +199,7 @@ function getAcknowledgementBadge(text, isMailSent) {
     if (t.includes("approve")) {
         return `
             <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold shadow-sm">
-                <i class="ph-fill ph-thumbs-up"></i> Approved
+                RCA Updated
             </span>`;
     }
 
@@ -311,7 +318,7 @@ function renderTable(jobs) {
 
             <!-- Acknowledgement Column -->
             <td>
-                ${getAcknowledgementBadge(job.mailrecived_text, job.is_mailsent)}
+                ${getAcknowledgementBadge(job.mailrecived_text, job.is_mailsent,job.status)}
             </td>
 
             <!-- STARTED Column -->
