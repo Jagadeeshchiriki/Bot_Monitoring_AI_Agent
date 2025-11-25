@@ -155,7 +155,7 @@ async def update_rca(rca_id: str, rca_update: RCAUpdate):
     Supports partial updates: only provided fields are updated.
     """
     # Convert RCAUpdate object to dict and remove None values
-    update_data = {k: v for k, v in rca_update.dict().items() if v is not None}
+    update_data = {k: v for k, v in rca_update.model_dump().items() if v is not None}
 
     if not update_data:
         return {"status": "No fields to update"}

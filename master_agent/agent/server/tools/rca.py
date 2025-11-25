@@ -30,7 +30,7 @@ You will be given:
 
 Your job:
 - Compare the execution + log details with the RCA records.
-- Pick the *best matching* RCA by similarity (exception message, type, robot, process).
+- Pick the *best matching* RCA by similarity (exception message, type, process).
 - Output ONLY a JSON object (no explanation) with:
     {{
        "RCA_ID": "<best RCA_ID>",
@@ -40,6 +40,9 @@ Your job:
        "RCA_ACTION": "<Description of action to take Suggested_Action>",
        "Matched_RCA_Record": <full RCA record object>
     }}
+
+If there is no exact match, return null
+
 
 ### RCA LIST:
 {rca_list}
@@ -85,13 +88,15 @@ async def get_rca_response(jobid: str):
     rca_list =await get_rca_list()
 
     llm_result = await predict_rca_with_llm(execution, logs, rca_list)
-    
-    new_job = {
-        "RCA_ID": llm_result["RCA_ID"],
-    }
-    await update_job(jobid,new_job)
-    
-    return llm_result 
+    if llm_result:
+        new_job = {
+            "RCA_ID": llm_result["RCA_ID"],
+        }
+        await update_job(jobid,new_job)
+        
+        return llm_result 
+    else:
+        return "RCA Not Found"
 
 
 

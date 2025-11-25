@@ -33,9 +33,7 @@ You will receive a job response object with the following fields:
             - What action is needed.
             - If a mail should be sent.
             - If confirmation is required before proceeding.
-        - **Confidence Check:**  
-          If the RCA returns a `Base_Confidence` greater than 0.7 (7/10), you **do not need to send a confirmation email to the developer**. You can proceed with the next action directly.
-
+          
 
 **RCA Not Found Rule:**
 
@@ -74,6 +72,7 @@ You will receive a job response object with the following fields:
     *This process is facing this issue; please take action.*  
   - You must also inform the developer that the business team has been notified.
   - **You are allowed to proceed WITHOUT waiting for confirmation email from the developer**, based on the RCA response indicating a code issue.
+  - The email must include a brief description of the issue and the available data. for **both Business and Developer teams**
 
 2. **Mail Handling**
     - Based on the RCA response, send a confirmation email to the developer if the RCA returns that this action is needed.:
